@@ -1,72 +1,133 @@
+const MAX_DSQUARE = 2500;
+const MAX_DALPHA = 0.5;
+
+const P_UPDATE_ALPHA_MOUSE_MOVE = 0.33;
+
 var canvas = document.getElementById("memory");
 var ctx = canvas.getContext("2d");
 
+// Audio
+var is_playing = false;
+var audio_ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+var source = audio_ctx.createBufferSource();
+function InitializeBuffersHelper(buffer_list) {
+    source.buffer = buffer_list[0];
+    source.loop = true;
+}
+buffer_loader =
+    new BufferLoader(audio_ctx, [ 'traffic.wav' ], InitializeBuffersHelper)
+buffer_loader.load();
+
+var gain = audio_ctx.createGain();
+gain.gain.value = 0.0;
+
+var pan = audio_ctx.createStereoPanner();
+pan.value = -1;
+
+gain.connect(audio_ctx.destination);
+pan.connect(gain);
+source.connect(pan);
+
 // Images
-var lakeImageData = ctx.createImageData(600, 600);
+function drawImageInContext(image) {
+    var tmp_canvas = document.createElement("canvas");
+    tmp_canvas.width = canvas.width;
+    tmp_canvas.height = canvas.height;
+    const tmp_ctx = tmp_canvas.getContext('2d');
+    tmp_ctx.drawImage(image, 0, 0);
+    return tmp_ctx;
+}
+
+var lakeImageData = ctx.createImageData(canvas.width, canvas.height);
 const lakeImage = new Image();
 lakeImage.src = "lake.jpg"
 lakeImage.addEventListener("load", () => {
-    ctx.drawImage(lakeImage, 0, 0);
-    lakeImageData = ctx.getImageData(0, 0, 600, 600);
+    var tmp_ctx = drawImageInContext(lakeImage);
+    lakeImageData = tmp_ctx.getImageData(0, 0, canvas.width, canvas.height);
 });
 
-var closetImageData = ctx.createImageData(600, 600);
+var closetImageData = ctx.createImageData(canvas.width, canvas.height);
 const closetImage = new Image();
 closetImage.src = "closet.jpg"
 closetImage.addEventListener("load", () => {
-    ctx.drawImage(closetImage, 0, 0);
-    closetImageData = ctx.getImageData(0, 0, 600, 600);
+    var tmp_ctx = drawImageInContext(closetImage);
+    closetImageData = tmp_ctx.getImageData(0, 0, canvas.width, canvas.height);
 });
 
-// Alpha
-var alpha = new Float32Array(600 * 600).fill(1.0);
-// Update alpha.
+// Alpha, aka opacity.
+var alpha = new Float32Array(canvas.width * canvas.height).fill(1.0);
 function UpdateAlphaMouse(x, y) {
-    if (Math.random() > 0.33) {
+    if (Math.random() > P_UPDATE_ALPHA_MOUSE_MOVE) {
         return;
     }
-    
-    var dsquare_thresh = Math.random() * 2500;
 
-    for (var ai = 0; ai < 600; ai++) {
-        for (var aj = 0; aj < 600; aj++) {
-            alpha_i = aj * 600 + ai;
+    var dsquare_thresh = Math.random() * MAX_DSQUARE;
+
+    for (var ai = 0; ai < canvas.width; ai++) {
+        for (var aj = 0; aj < canvas.height; aj++) {
+            var alpha_i = aj * canvas.width + ai;
 
             var dx = ai - x;
             var dy = aj - y;
             var dsquare = dx * dx + dy * dy;
             if (dsquare < dsquare_thresh) {
-                da = Math.max((0.4 - dsquare * 0.4 / 2500) * Math.random(), 0.0)
+                da =
+                    Math.max((MAX_DALPHA - dsquare * MAX_DALPHA / MAX_DSQUARE) *
+                                     Math.random() +
+                                 0.05,
+                             0.0)
                 alpha[alpha_i] = Math.max(alpha[alpha_i] - da, 0.0);
             }
         }
     }
 }
 function UpdateAlpha() {
-    for (var ai = 0; ai < 600; ai++) {
-        for (var aj = 0; aj < 600; aj++) {
-            alpha_i = aj * 600 + ai;
-            alpha[alpha_i] = alpha[alpha_i] +
-                             (1.0 - alpha[alpha_i]) * Math.random() * 0.03;
+    for (var ai = 0; ai < canvas.width; ai++) {
+        for (var aj = 0; aj < canvas.height; aj++) {
+            alpha_i = aj * canvas.width + ai;
+            alpha[alpha_i] =
+                alpha[alpha_i] + (1.0 - alpha[alpha_i]) * Math.random() * 0.03;
         }
     }
 }
+function UpdateGain() {
+    sum = 0.0;
+    count = 0;
+    for (var ai = 0; ai < canvas.width; ai++) {
+        for (var aj = 0; aj < canvas.height; aj++) {
+            alpha_i = aj * canvas.width + ai;
+            sum = sum + 1.0 - alpha[alpha_i]
+            count = count + 1;
+        }
+    }
+    gain.gain.value = sum / count;
+    pan.pan.value = -1.0 + sum / count;
+}
 
 function Draw(ctx) {
-    var imageData = ctx.createImageData(600, 600);
-    for (var i = 0; i < 600; i++) {
-        for (var j = 0; j < 600; j++) {
-            ind = (i * 600 + j) * 4
-            var a = alpha[i * 600 + j];
+    var imageData = ctx.createImageData(canvas.width, canvas.height);
+    for (var i = 0; i < canvas.width; i++) {
+        for (var j = 0; j < canvas.height; j++) {
+            var ai = j * canvas.width + i;
+            var ii = ai * 4;
+            var a = alpha[ai];
             for (var k = 0; k < 3; k++) {
-                imageData.data[ind + k] =
-                    (a * closetImageData.data[ind + k] +
-                     (1.0 - a) * lakeImageData.data[ind + k]);
+                imageData.data[ii + k] =
+                    (a * closetImageData.data[ii + k] +
+                     (1.0 - a) * lakeImageData.data[ii + k]);
             }
-            imageData.data[ind + 3] = 255;
+            imageData.data[ii + 3] = 255;
         }
     }
     ctx.putImageData(imageData, 0, 0);
+}
+
+function Update() {
+    UpdateAlpha();
+    UpdateGain();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    Draw(ctx)
 }
 
 function Start() {
@@ -74,13 +135,17 @@ function Start() {
     setInterval(Update, 30);
 }
 
-function Update() {
-    UpdateAlpha();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    Draw(ctx)
-}
-
 Start();
 
 canvas.addEventListener('mousemove',
                         (e) => { UpdateAlphaMouse(e.offsetX, e.offsetY); });
+
+canvas.addEventListener('click', (e) => {
+    if (is_playing) {
+        source.stop();
+        is_playing = false;
+        return;
+    }
+    source.start();
+    is_playing = true;
+});
