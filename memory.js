@@ -7,27 +7,39 @@ var canvas = document.getElementById("memory");
 var ctx = canvas.getContext("2d");
 
 // Audio
-var is_playing = false;
 var audio_ctx = new (window.AudioContext || window.webkitAudioContext)();
+var is_playing = false;
 
-var source = audio_ctx.createBufferSource();
+var traffic_chain;
+var birds_chain;
 function InitializeBuffersHelper(buffer_list) {
-    source.buffer = buffer_list[0];
-    source.loop = true;
+    traffic_chain = new SimpleAudioChain(buffer_list[0], 0.0, -1);
+    birds_chain = new SimpleAudioChain(buffer_list[1], 0.1, 0.2);
 }
-buffer_loader =
-    new BufferLoader(audio_ctx, [ 'traffic.wav' ], InitializeBuffersHelper)
+buffer_loader = new BufferLoader(audio_ctx, [ 'traffic.wav', 'birds.wav' ],
+                                 InitializeBuffersHelper)
 buffer_loader.load();
 
-var gain = audio_ctx.createGain();
-gain.gain.value = 0.0;
+class SimpleAudioChain {
+    constructor(b, gain, pan) {
+        this.source = audio_ctx.createBufferSource();
+        this.source.buffer = b;
+        this.source.loop = true;
 
-var pan = audio_ctx.createStereoPanner();
-pan.value = -1;
+        this.gain = audio_ctx.createGain();
+        this.gain.gain.value = gain;
 
-gain.connect(audio_ctx.destination);
-pan.connect(gain);
-source.connect(pan);
+        this.pan = audio_ctx.createStereoPanner();
+        this.pan.value = pan;
+
+        this.gain.connect(audio_ctx.destination);
+        this.pan.connect(this.gain);
+        this.source.connect(this.pan);
+    }
+}
+
+// var traffic_chain; = new SimpleAudioChain(traffic);
+// var birds_chain = new SimpleAudioChain(birds);
 
 // Images
 function drawImageInContext(image) {
@@ -92,6 +104,9 @@ function UpdateAlpha() {
     }
 }
 function UpdateGain() {
+    if (traffic_chain == null) {
+        return;
+    }
     sum = 0.0;
     count = 0;
     for (var ai = 0; ai < canvas.width; ai++) {
@@ -101,8 +116,10 @@ function UpdateGain() {
             count = count + 1;
         }
     }
-    gain.gain.value = sum / count;
-    pan.pan.value = -1.0 + sum / count;
+    traffic_chain.gain.gain.value = sum / count;
+    traffic_chain.pan.value = -1.0 + sum / count;
+
+    birds_chain.gain.gain.value = Math.exp(-100.0 * sum / count);
 }
 
 function Draw(ctx) {
@@ -137,15 +154,22 @@ function Start() {
 
 Start();
 
-canvas.addEventListener('mousemove',
-                        (e) => { UpdateAlphaMouse(e.offsetX, e.offsetY); });
+canvas.addEventListener('mousemove', (e) => {
+    UpdateAlphaMouse(e.offsetX, e.offsetY);
+});
 
 canvas.addEventListener('click', (e) => {
-    if (is_playing) {
-        source.stop();
-        is_playing = false;
-        return;
+    //    if (is_playing) {
+    //        source.stop();
+    //        is_playing = false;
+    //        return;
+    //    }
+    //    source.buffer = b;
+    //    source.start();
+    //    is_playing = true;
+    if (!is_playing) {
+        traffic_chain.source.start();
+        birds_chain.source.start();
+        is_playing = true;
     }
-    source.start();
-    is_playing = true;
 });
