@@ -19,23 +19,41 @@
             border-bottom: 1px solid #7d7976;
             text-align: left;
         }
+        td {
+            vertical-align: top;
+        }
     </style>
 </head>
 <body>
     <table>
         <tr>
+            Things that animate memories ...
+            <li>The absence of a clothing item I prematurely gave away</li>
+            <li>The gap overlooking a highway where a building used to be</li>
+            <li>The questions an old acquaintance did not ask</li>
+        </tr>
+        <tr>
             <td>
                 <div id="canvas-bloc">
-                    <canvas id="memory" width="600" height="600">
+                    <canvas id="clothing" width="600" height="600">
                         HTML5 isn't supported : (
                     </canvas>
                 </div>
-                <script src="https://requirejs.org/docs/release/2.3.5/minified/require.js"></script>
-                <script src="buffer_loader.js"></script>
-                <script src="memory.js"></script>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div id="canvas-bloc">
+                    <canvas id="maze" width="600" height="600">
+                        HTML5 isn't supported : (
+                    </canvas>
+                </div>
             </td>
         </tr>
     </table>
+    <script src="https://requirejs.org/docs/release/2.3.5/minified/require.js"></script>
+    <script src="buffer_loader.js"></script>
+    <script src="memory.js"></script>
 </body>
 </html>
 
