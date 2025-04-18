@@ -8,6 +8,7 @@ var ctx = canvas.getContext("2d");
 
 // Audio
 var audio_ctx = new (window.AudioContext || window.webkitAudioContext)();
+var is_loading = true;
 var is_first_play = true;
 var is_playing = false;
 buffer_loader = new BufferLoader(audio_ctx, [ 'traffic.wav', 'birds.wav' ],
@@ -35,6 +36,7 @@ var birds_chain;
 function InitializeBuffersHelper(buffer_list) {
     traffic_chain = new SimpleAudioChain(buffer_list[0], 0.0, -1);
     birds_chain = new SimpleAudioChain(buffer_list[1], 0.1, 0.2);
+    is_loading = false;
 }
 
 // Images
@@ -119,6 +121,12 @@ function UpdateGain() {
 }
 
 function Draw(ctx) {
+    if (is_loading) {
+        ctx.font = "20px serif";
+        ctx.fillStyle = "#4D4847";
+        ctx.fillText("Loading ...", 10, 20);
+        return;
+    }
     if (!is_playing) {
         ctx.font = "20px serif";
         ctx.fillStyle = "#4D4847";
@@ -147,6 +155,9 @@ function Draw(ctx) {
 }
 
 function Update() {
+    if (is_loading) {
+        return;
+    }
     UpdateAlpha();
     UpdateGain();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -164,6 +175,9 @@ canvas.addEventListener('mousemove',
                         (e) => { UpdateAlphaMouse(e.offsetX, e.offsetY); });
 
 canvas.addEventListener('click', (e) => {
+    if (is_loading) {
+        return;
+    }
     if (is_playing) {
         audio_ctx.suspend();
         is_playing = false;
@@ -176,5 +190,4 @@ canvas.addEventListener('click', (e) => {
         }
         is_playing = true;
     }
-    
 });
