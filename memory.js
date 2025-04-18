@@ -8,18 +8,11 @@ var ctx = canvas.getContext("2d");
 
 // Audio
 var audio_ctx = new (window.AudioContext || window.webkitAudioContext)();
+var is_first_play = true;
 var is_playing = false;
-
-var traffic_chain;
-var birds_chain;
-function InitializeBuffersHelper(buffer_list) {
-    traffic_chain = new SimpleAudioChain(buffer_list[0], 0.0, -1);
-    birds_chain = new SimpleAudioChain(buffer_list[1], 0.1, 0.2);
-}
 buffer_loader = new BufferLoader(audio_ctx, [ 'traffic.wav', 'birds.wav' ],
                                  InitializeBuffersHelper)
 buffer_loader.load();
-
 class SimpleAudioChain {
     constructor(b, gain, pan) {
         this.source = audio_ctx.createBufferSource();
@@ -37,9 +30,12 @@ class SimpleAudioChain {
         this.source.connect(this.pan);
     }
 }
-
-// var traffic_chain; = new SimpleAudioChain(traffic);
-// var birds_chain = new SimpleAudioChain(birds);
+var traffic_chain;
+var birds_chain;
+function InitializeBuffersHelper(buffer_list) {
+    traffic_chain = new SimpleAudioChain(buffer_list[0], 0.0, -1);
+    birds_chain = new SimpleAudioChain(buffer_list[1], 0.1, 0.2);
+}
 
 // Images
 function drawImageInContext(image) {
@@ -123,6 +119,13 @@ function UpdateGain() {
 }
 
 function Draw(ctx) {
+    if (!is_playing) {
+        ctx.font = "20px serif";
+        ctx.fillStyle = "#4D4847";
+        ctx.fillText("Click to start ...", 10, 20);
+        return;
+    }
+
     var imageData = ctx.createImageData(canvas.width, canvas.height);
     for (var i = 0; i < canvas.width; i++) {
         for (var j = 0; j < canvas.height; j++) {
@@ -138,6 +141,9 @@ function Draw(ctx) {
         }
     }
     ctx.putImageData(imageData, 0, 0);
+    ctx.font = "20px serif";
+    ctx.fillStyle = "#4D4847";
+    ctx.fillText("Click to pause ...", 10, 20);
 }
 
 function Update() {
@@ -154,22 +160,21 @@ function Start() {
 
 Start();
 
-canvas.addEventListener('mousemove', (e) => {
-    UpdateAlphaMouse(e.offsetX, e.offsetY);
-});
+canvas.addEventListener('mousemove',
+                        (e) => { UpdateAlphaMouse(e.offsetX, e.offsetY); });
 
 canvas.addEventListener('click', (e) => {
-    //    if (is_playing) {
-    //        source.stop();
-    //        is_playing = false;
-    //        return;
-    //    }
-    //    source.buffer = b;
-    //    source.start();
-    //    is_playing = true;
-    if (!is_playing) {
-        traffic_chain.source.start();
-        birds_chain.source.start();
+    if (is_playing) {
+        audio_ctx.suspend();
+        is_playing = false;
+    } else {
+        audio_ctx.resume();
+        if (is_first_play) {
+            traffic_chain.source.start();
+            birds_chain.source.start();
+            is_first_play = false;
+        }
         is_playing = true;
     }
+    
 });
